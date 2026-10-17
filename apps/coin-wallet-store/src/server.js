@@ -357,10 +357,10 @@ export class CoinWalletStoreServer {
               }
             });
 
-            // Normalize checkoutUrl for localhost development / testing to prevent tunnel offline issues
-            let resolvedCheckoutUrl = payment.checkoutUrl;
-            if (host.includes('localhost') || host.includes('127.0.0.1')) {
-              resolvedCheckoutUrl = `${proto}://${host}/checkout/${payment.paymentId}`;
+            // Normalize checkoutUrl to always match the current host and protocol (e.g. Render public host or localhost)
+            let resolvedCheckoutUrl = `${proto}://${host}/checkout/${payment.paymentId}`;
+            if (!host && payment.checkoutUrl) {
+              resolvedCheckoutUrl = payment.checkoutUrl;
             }
 
             res.writeHead(200, {

@@ -107,4 +107,34 @@ describe('YOUPI PG V2 — Render Production Gateway Integration Tests', () => {
     assert.equal(res.status, 200);
     assert.ok(Number(res.headers.get('content-length')) > 100000);
   });
+
+  test('8. /store loads showcase store HTML', async () => {
+    const res = await fetch(`http://127.0.0.1:${testPort}/store`);
+    assert.equal(res.status, 200);
+    const html = await res.text();
+    assert.ok(html.includes('YOUPI Store') || html.includes('Enterprise Payment Gateway'));
+  });
+
+  test('9. POST /api/checkout initiates demo store purchase and returns checkoutUrl', async () => {
+    const res = await fetch(`http://127.0.0.1:${testPort}/api/checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-forwarded-host': `127.0.0.1:${testPort}`,
+        'x-forwarded-proto': 'http'
+      },
+      body: JSON.stringify({
+        price: 499,
+        coins: 500,
+        productName: 'Gamer Pro Pack'
+      })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(data.orderId);
+    assert.ok(data.paymentId);
+    assert.ok(data.checkoutUrl);
+    assert.ok(data.checkoutUrl.includes(`/checkout/${data.paymentId}`));
+  });
 });
+

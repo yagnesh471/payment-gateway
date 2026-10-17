@@ -203,6 +203,31 @@ export async function startRenderGateway(options = {}) {
       return;
     }
 
+    // Demo Store / Showcase Routes -> :5000 (if enabled)
+    if (
+      enableDemoStore && (
+        pathname === '/store' ||
+        pathname.startsWith('/store/') ||
+        pathname === '/wallet' ||
+        pathname.startsWith('/wallet/') ||
+        pathname.startsWith('/assets/') ||
+        pathname.startsWith('/order-') ||
+        pathname === '/success' ||
+        pathname === '/failed' ||
+        pathname === '/suspicious' ||
+        pathname === '/expired' ||
+        pathname === '/cancelled' ||
+        pathname === '/api/checkout' ||
+        pathname === '/api/verify-payment' ||
+        pathname === '/api/wallet-balance' ||
+        pathname === '/api/webhook' ||
+        pathname.startsWith('/demo')
+      )
+    ) {
+      proxyRequest(req, res, COIN_STORE_PORT);
+      return;
+    }
+
     // Core Payment API & Observer Endpoints -> :6100
     if (pathname.startsWith('/api/')) {
       // Special: Admin ticket/service proxies route to admin if needed
@@ -211,20 +236,6 @@ export async function startRenderGateway(options = {}) {
         return;
       }
       proxyRequest(req, res, PAYMENT_API_PORT);
-      return;
-    }
-
-    // Demo Store / Showcase Routes -> :5000 (if enabled)
-    if (
-      enableDemoStore && (
-        pathname.startsWith('/store') ||
-        pathname.startsWith('/wallet') ||
-        pathname.startsWith('/assets/') ||
-        pathname.startsWith('/order-') ||
-        pathname.startsWith('/demo')
-      )
-    ) {
-      proxyRequest(req, res, COIN_STORE_PORT);
       return;
     }
 

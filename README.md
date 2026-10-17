@@ -56,10 +56,6 @@ See **YOUPI PG V2** live in action across Desktop and Mobile checkout flows:
 
 <br/>
 
-> **High-Definition 120FPS Raw Recordings**: [assets/Desktop.mp4](assets/Desktop.mp4) • [assets/Mobile.mp4](assets/Mobile.mp4)
-
-<br/>
-
 ---
 
 ## 💡 Stop Paying 2–3% + 18% GST to Payment Aggregators
