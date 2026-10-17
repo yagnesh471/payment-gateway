@@ -1247,11 +1247,12 @@
                   <th>Channel Sources</th>
                   <th>Created At</th>
                   <th>Completed At</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="paymentsLedgerTbody">
                 <tr>
-                  <td colspan="9" style="text-align:center; padding:1.5rem;">Loading transactions...</td>
+                  <td colspan="10" style="text-align:center; padding:1.5rem;">Loading transactions...</td>
                 </tr>
               </tbody>
             </table>
@@ -2778,10 +2779,32 @@
               <button class="btn btn-secondary" style="font-size:0.7rem; padding:0.2rem 0.5rem; margin-left:0.5rem;"
                 onclick="copySmsToken()">📋 Copy</button>
             </div>
-            <div style="display:flex; justify-content:center; gap:0.5rem;">
+            <div style="display:flex; justify-content:center; gap:0.5rem; margin-bottom:1rem;">
               <button class="btn btn-secondary" onclick="fetchSmsPairQr()">🔄 Refresh QR</button>
-              <a class="btn btn-success" href="/youpi-sms-gateway.apk" download="youpi-sms-gateway.apk">📲 Download
-                Android APK</a>
+              <a class="btn btn-success" href="/youpi-sms-gateway.apk" download="youpi-sms-gateway.apk">📲 Download Android APK</a>
+            </div>
+
+            <!-- Alternative 1: Google Play Protect Bypass Guide -->
+            <div style="background:rgba(234, 179, 8, 0.08); border:1px solid rgba(234, 179, 8, 0.3); border-radius:0.5rem; padding:0.85rem; margin-bottom:1rem; text-align:left; font-size:0.8rem; color:#fef08a;">
+              <strong style="color:#facc15;">🛡️ Note on Google Play Protect:</strong>
+              Because the companion APK listens to incoming bank SMS outside the official Play Store, Google Play Protect flags it as an "Unsafe app".
+              To install:
+              <ol style="margin:0.4rem 0 0.4rem 1.2rem; padding:0; line-height:1.4;">
+                <li>When prompted during installation, tap <strong>"More details"</strong>.</li>
+                <li>Tap <strong>"Install anyway"</strong> (or temporarily toggle off "Scan apps with Play Protect" in Google Play Store settings).</li>
+              </ol>
+            </div>
+
+            <!-- Alternative 2: MacroDroid / SMS Forwarder from Play Store (No sideloading needed!) -->
+            <div style="background:rgba(56, 189, 248, 0.08); border:1px solid rgba(56, 189, 248, 0.3); border-radius:0.5rem; padding:0.85rem; margin-bottom:1.25rem; text-align:left; font-size:0.8rem; color:#bae6fd;">
+              <strong style="color:#38bdf8;">⚡ Alternative: Use Any Google Play Store App (e.g. MacroDroid / SMS Forwarder)</strong>
+              <p style="margin:0.35rem 0 0.5rem 0; line-height:1.4; color:#e2e8f0;">
+                If you prefer not to sideload an APK, install <strong>MacroDroid</strong> directly from the Google Play Store (100% verified and approved by Google Play).
+              </p>
+              <div style="background:#0b1120; padding:0.6rem; border-radius:0.4rem; border:1px solid var(--border); font-family:monospace; font-size:0.75rem; color:#93c5fd; overflow-x:auto;">
+                <strong>Webhook URL:</strong> <span id="macroDroidWebhookUrl" style="color:#67e8f9;">/api/v1/pollers/sms-webhook</span><br/>
+                <strong>HTTP Method:</strong> POST &nbsp;|&nbsp; <strong>Body (JSON):</strong> {"text":"{sms_body}","sender":"{sms_number}"}
+              </div>
             </div>
           </div>
 
@@ -3902,6 +3925,9 @@
         <div style="font-size:1.75rem; font-weight:800; color:#38bdf8;">₹${(Number(currentSlot.amountPaise) / 100).toFixed(2)}</div>
         <div style="font-weight:700; margin:0.35rem 0;">Order #${currentSlot.orderId}</div>
         <div class="badge badge-info">ACTIVE (⏱ ${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')} remaining)</div>
+        <div style="margin-top:0.75rem; display:flex; justify-content:center;">
+          <button class="btn btn-success" style="padding:0.35rem 0.8rem; font-size:0.78rem; font-weight:700;" onclick="confirmCounterPayment('${currentSlot.id}', 'UPI')">✓ Approve Payment (Money Received in Bank)</button>
+        </div>
       `;
       } else {
         box.className = 'slot-card';
@@ -3921,6 +3947,9 @@
         <div style="font-size:1.75rem; font-weight:800; color:#fbbf24;">₹${(Number(currentSlot.amountPaise) / 100).toFixed(2)}</div>
         <div style="font-weight:700; margin:0.35rem 0;">Order #${currentSlot.orderId}</div>
         <div class="badge badge-warning">VERIFYING (⏳ ${remainingSec}s remaining)</div>
+        <div style="margin-top:0.75rem; display:flex; justify-content:center;">
+          <button class="btn btn-success" style="padding:0.35rem 0.8rem; font-size:0.78rem; font-weight:700;" onclick="confirmCounterPayment('${currentSlot.id}', 'UPI')">✓ Approve Payment (Money Received in Bank)</button>
+        </div>
       `;
       } else {
         box.className = 'slot-card';
@@ -4130,9 +4159,12 @@
             }
           }
 
-          const sourcesChips = (p.verificationSources && p.verificationSources.length > 0)
-            ? p.verificationSources.map(s => `<code style="font-size:0.7rem; background:#0f172a; padding:0.15rem 0.35rem; border-radius:0.25rem; margin-right:0.2rem; border:1px solid var(--border); color:#93c5fd;">${s === 'GOOGLE_MESSAGES' ? 'SMS' : s}</code>`).join('')
-            : '<span style="color:var(--text-muted); font-size:0.75rem;">-</span>';
+          let actionCell = '<span style="color:var(--text-muted); font-size:0.75rem;">-</span>';
+          if (p.status === 'ACTIVE' || p.status === 'PROCESSING') {
+            actionCell = `<button class="btn btn-success" style="padding:0.25rem 0.5rem; font-size:0.72rem; font-weight:700;" onclick="confirmCounterPayment('${p.id}', '${p.method || 'UPI'}')">✓ Approve</button>`;
+          } else if (p.status === 'SUCCESS') {
+            actionCell = `<span style="color:#34d399; font-weight:700; font-size:0.75rem;">✓ Paid</span>`;
+          }
 
           return `
           <tr>
@@ -4145,6 +4177,7 @@
             <td>${sourcesChips}</td>
             <td>${new Date(p.createdAt).toLocaleTimeString()}</td>
             <td>${p.completedAt ? new Date(p.completedAt).toLocaleTimeString() : '-'}</td>
+            <td>${actionCell}</td>
           </tr>
         `;
         }).join('');
@@ -4964,6 +4997,10 @@
         const tok2 = document.getElementById('smsTokenVal2');
         if (tok1 && data.enrollmentToken) tok1.textContent = data.enrollmentToken;
         if (tok2 && data.enrollmentToken) tok2.textContent = data.enrollmentToken;
+        const macroHook = document.getElementById('macroDroidWebhookUrl');
+        if (macroHook) {
+          macroHook.textContent = window.location.origin + '/api/v1/pollers/sms-webhook';
+        }
       } catch (e) {
         box.innerHTML = '<span style="font-size:0.75rem; color:#ef4444;">Failed to load QR</span>';
       }

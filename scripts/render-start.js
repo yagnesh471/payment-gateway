@@ -229,7 +229,11 @@ export async function startRenderGateway(options = {}) {
     }
 
     // Core Payment API & Observer Endpoints -> :6100
-    if (pathname.startsWith('/api/')) {
+    if (
+      pathname.startsWith('/api/') ||
+      pathname === '/sms-webhook' ||
+      pathname === '/webhook/sms'
+    ) {
       // Special: Admin ticket/service proxies route to admin if needed
       if (pathname.startsWith('/api/admin/tickets')) {
         proxyRequest(req, res, MERCHANT_ADMIN_PORT);

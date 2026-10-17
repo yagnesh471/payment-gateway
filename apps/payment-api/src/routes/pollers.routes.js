@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HttpServer } from '../server.js';
 import { ObservationNormalizer, BankSmsParser, BankEmailParser, generateQrSvg } from '@youpi/core';
-import { toRupeesString, toPaise, verifyHmac, resolveRuntimeUrls } from '@youpi/common';
+import { toRupeesString, toPaise, verifyHmac, resolveRuntimeUrls, ObserverSource } from '@youpi/common';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -53,25 +53,44 @@ export function registerPollerRoutes(server, ctx) {
     });
   });
 
-  // POST /api/v1/pollers/events (Universal Observation Ingest for Gmail / SMS 2-Layer Observers)
-  server.post('/api/v1/pollers/events', async (req, res) => {
+  // Universal Observation Ingest for Gmail / SMS 2-Layer Observers / Webhooks (MacroDroid, Tasker, Play Store SMS Forwarders)
+  const handleUniversalPollerEvent = async (req, res) => {
     const body = await HttpServer.parseBody(req);
 
-    if (!body.receivingAccountId || !body.source) {
-      HttpServer.json(res, 400, { error: 'Missing required fields: receivingAccountId and source.' });
-      return;
+    let source = (body.source || 'SMS_GATEWAY').toUpperCase();
+    if (source === 'SMS' || source === 'SMS_FORWARDER' || source === 'WEBHOOK' || source === 'MACRODROID') {
+      source = ObserverSource.SMS_GATEWAY;
+    } else if (!Object.values(ObserverSource).includes(source)) {
+      source = ObserverSource.SMS_GATEWAY;
+    }
+    let receivingAccountId = body.receivingAccountId;
+
+    if (!receivingAccountId) {
+      const active = ctx.db.queryOne(`
+        SELECT receiving_account_id FROM payment_sessions 
+        WHERE status IN ('ACTIVE', 'PROCESSING') 
+        ORDER BY created_at DESC LIMIT 1
+      `);
+      if (active?.receiving_account_id) {
+        receivingAccountId = active.receiving_account_id;
+      } else {
+        const defAcc = ctx.db.queryOne(`
+          SELECT id FROM payment_receiving_accounts WHERE is_active = 1 LIMIT 1
+        `);
+        receivingAccountId = defAcc?.id || '00000000-0000-0000-0000-000000000002';
+      }
     }
 
     // Evaluate through Security & Fraud Verification Pipeline
     const rawText = body.rawText || body.text || body.message || body.sms || body.body || (typeof body.rawPayload === 'string' ? body.rawPayload : (body.rawPayload?.text || body.rawPayload?.body));
-    const sender = body.sender || body.from || body.rawPayload?.sender || body.rawPayload?.from;
+    const sender = body.sender || body.from || body.rawPayload?.sender || body.rawPayload?.from || 'BANK-ALERT';
 
     if (ctx.pipeline && rawText) {
       const pipeResult = ctx.pipeline.process({
-        source: body.source,
+        source,
         rawText,
         sender,
-        receivingAccountId: body.receivingAccountId,
+        receivingAccountId,
         paymentSessionId: body.paymentSessionId,
         isTest: Boolean(body.isTest),
         testModeActive: Boolean(body.testModeActive)
@@ -107,7 +126,7 @@ export function registerPollerRoutes(server, ctx) {
       const observedAt = body.observedAt ? new Date(body.observedAt) : new Date();
 
       if (rawText && (!amountPaise || !bankRef)) {
-        const isEmail = body.source === 'GMAIL' || body.source === 'EMAIL';
+        const isEmail = source === 'GMAIL' || source === 'EMAIL';
         const parsed = isEmail
           ? BankEmailParser.parse({ subject: body.subject || body.rawPayload?.subject || '', body: rawText, date: observedAt, from: sender })
           : BankSmsParser.parse({ text: rawText, sender, timestamp: observedAt });
@@ -119,8 +138,8 @@ export function registerPollerRoutes(server, ctx) {
       }
 
       const normalized = ObservationNormalizer.normalize({
-        source: body.source,
-        receivingAccountId: body.receivingAccountId,
+        source,
+        receivingAccountId,
         rawPayload: body.rawPayload || body,
         amountPaise,
         amount: body.amount || (amountPaise ? (Number(amountPaise) / 100).toFixed(2) : undefined),
@@ -140,7 +159,13 @@ export function registerPollerRoutes(server, ctx) {
       console.error('[Poller Ingest Error]:', err.message);
       HttpServer.json(res, 400, { error: err.message });
     }
-  });
+  };
+
+  server.post('/api/v1/pollers/events', handleUniversalPollerEvent);
+  server.post('/api/v1/pollers/sms-webhook', handleUniversalPollerEvent);
+  server.post('/api/v1/webhook/sms', handleUniversalPollerEvent);
+  server.post('/sms-webhook', handleUniversalPollerEvent);
+  server.post('/webhook/sms', handleUniversalPollerEvent);
 
   // --- ANDROID SMS GATEWAY PAIRING HANDLER ---
   const handleAndroidPair = async (req, res) => {
