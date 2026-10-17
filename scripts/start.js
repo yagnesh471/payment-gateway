@@ -37,6 +37,15 @@ const domain = (branding.cloudflareDomain || branding.domainTld || process.env.C
 const prefix = (branding.deploymentPrefix || branding.domainPrefix || process.env.DEPLOYMENT_PREFIX || 'pay').trim().toLowerCase().replace(/[^a-z0-9-_]/g, '') || 'pay';
 
 if (!domain) {
+  // Auto-detect Render or single-port hosting environment
+  if (process.env.RENDER || process.env.RENDER_EXTERNAL_URL || (!process.env.CLOUDFLARE_DOMAIN && process.env.PORT)) {
+    console.log('[✓] Render / Single-Port environment detected. Launching Render Production Gateway...\n');
+    const { startRenderGateway } = await import('./render-start.js');
+    await startRenderGateway();
+    // Return early since render gateway handles its own loop and shutdown
+    return;
+  }
+
   console.error('\n================================================================');
   console.error('❌ [CONFIGURATION ERROR] PRODUCTION STARTUP FAILED');
   console.error('================================================================');

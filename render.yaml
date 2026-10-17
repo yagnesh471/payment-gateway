@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: youpi-payment-gateway
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:render
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.13.0
+      - key: YOUPI_MODE
+        value: render
+      - key: NODE_ENV
+        value: production
+      - key: ENCRYPTION_MASTER_KEY
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ANDROID_ENROLLMENT_SECRET
+        generateValue: true
+      - key: INITIAL_ADMIN_EMAIL
+        value: admin@youpi.local
+      - key: INITIAL_ADMIN_PASSWORD
+        generateValue: true
+      - key: DEFAULT_APP_NAME
+        value: "YOUPI PG"
+      - key: DEFAULT_PRIMARY_COLOR
+        value: "#2563eb"
+      - key: ENABLE_DEMO_STORE
+        value: "true"

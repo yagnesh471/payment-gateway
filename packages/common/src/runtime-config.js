@@ -227,6 +227,9 @@ export function validatePairingPayload(payload) {
  * Resolves active runtime pairing API URL.
  */
 export function resolvePairingUrl(options = {}) {
+  if (!options.domain && !options.domainTld && (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL)) {
+    return (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL).replace(/\/+$/, '');
+  }
   const urls = resolveRuntimeUrls(options);
   return urls.apiUrl || 'http://localhost:6100';
 }

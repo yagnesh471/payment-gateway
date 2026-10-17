@@ -9,11 +9,12 @@
     "apps/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "node scripts/init-db.cjs",
     "clean": "node scripts/clean.js",
     "db:setup": "node scripts/init-db.cjs",
     "sync:package": "node scripts/sync-package.cjs",
     "start": "node scripts/start.js",
+    "start:render": "node scripts/render-start.js",
     "start:prod": "node scripts/start.js",
     "start:prod:api": "node apps/payment-api/src/index.js",
     "dev": "node scripts/dev.js",
