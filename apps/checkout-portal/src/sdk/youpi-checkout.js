@@ -38,7 +38,9 @@
       scriptUrl = new URL(script.src, window.location.href);
     } catch (e) { }
 
-    const origin = scriptUrl ? scriptUrl.origin : (window.location.protocol + '//' + window.location.hostname + ':7000');
+    const origin = (scriptUrl && scriptUrl.origin && !scriptUrl.origin.includes('null'))
+      ? scriptUrl.origin
+      : (window.location.origin || (window.location.protocol + '//' + window.location.host));
 
     return {
       key: script.getAttribute('data-youpi-key') || script.getAttribute('data-key') || script.getAttribute('data-merchant-id') || '',
@@ -94,7 +96,7 @@
      */
     constructor(options = {}) {
       const defaultPortal = isBrowser
-        ? (scriptConfig.portalUrl || (window.location.protocol + '//' + window.location.hostname + ':7000'))
+        ? (scriptConfig.portalUrl || (window.location.origin || (window.location.protocol + '//' + window.location.host)))
         : 'http://localhost:7000';
 
       const defaultApi = isBrowser
@@ -253,9 +255,16 @@
         targetUrl = `${this.options.portalUrl}/checkout/demo`;
       }
 
-      // If running on localhost / 127.0.0.1 and targetUrl points to remote domain, normalize to localhost host
-      if (isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-        if (targetUrl.includes('gauravtesting.online')) {
+      // Normalize targetUrl so it always loads the checkout iframe from the current host when deployed
+      if (isBrowser) {
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          if (targetUrl.includes('localhost') || targetUrl.includes('127.0.0.1') || targetUrl.includes(':7000') || targetUrl.includes('gauravtesting.online')) {
+            try {
+              const parsed = new URL(targetUrl, window.location.href);
+              targetUrl = `${window.location.origin}${parsed.pathname}${parsed.search}`;
+            } catch {}
+          }
+        } else if (targetUrl.includes('gauravtesting.online')) {
           try {
             const parsed = new URL(targetUrl);
             targetUrl = `${window.location.protocol}//${window.location.host}${parsed.pathname}${parsed.search}`;

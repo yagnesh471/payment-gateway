@@ -16,11 +16,24 @@ import { isTerminalStatus, toPublicOutcome } from '@youpi/core';
  * }} ctx
  */
 export function registerPaymentRoutes(server, ctx) {
-  function resolveCheckoutBaseUrl(merchant) {
+  function resolveCheckoutBaseUrl(merchant, req = null) {
+    if (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || process.env.BASE_CHECKOUT_URL) {
+      const publicBase = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || process.env.BASE_CHECKOUT_URL).trim().replace(/\/+$/, '');
+      if (!publicBase.includes('localhost:7000') && !publicBase.includes('127.0.0.1:7000')) {
+        return publicBase;
+      }
+    }
+    if (req) {
+      const proto = req.headers['x-forwarded-proto'] || (req.headers.host?.includes('localhost') ? 'http' : 'https');
+      const host = req.headers['x-forwarded-host'] || req.headers.host;
+      if (host && !host.includes('6100') && !host.includes('7000')) {
+        return `${proto}://${host}`.replace(/\/+$/, '');
+      }
+    }
     if (merchant?.branding) {
       try {
         const urls = resolveRuntimeUrls(merchant.branding);
-        if (urls && urls.checkoutUrl) return urls.checkoutUrl;
+        if (urls && urls.checkoutUrl && !urls.checkoutUrl.includes('localhost:7000')) return urls.checkoutUrl;
       } catch {}
     }
     return ctx.checkoutBaseUrl || 'http://localhost:7000';
@@ -76,7 +89,7 @@ export function registerPaymentRoutes(server, ctx) {
           amountPaise: existing.amountPaise.toString(),
           currency: existing.currency,
           status: existing.status,
-          checkoutUrl: `${resolveCheckoutBaseUrl(merchant)}/checkout/${existing.id}`
+          checkoutUrl: `${resolveCheckoutBaseUrl(merchant, req)}/checkout/${existing.id}`
         });
         return;
       }
@@ -121,7 +134,7 @@ export function registerPaymentRoutes(server, ctx) {
           currency: existing.currency,
           status: existing.status,
           activeSessionDetected: true,
-          checkoutUrl: `${resolveCheckoutBaseUrl(merchant)}/checkout/${existing.id}`
+          checkoutUrl: `${resolveCheckoutBaseUrl(merchant, req)}/checkout/${existing.id}`
         });
         return;
       }
@@ -262,7 +275,7 @@ export function registerPaymentRoutes(server, ctx) {
       currency: session.currency,
       status: queueResult.status,
       queuePosition: queueResult.queuePosition,
-      checkoutUrl: `${resolveCheckoutBaseUrl(merchant)}/checkout/${session.id}`
+      checkoutUrl: `${resolveCheckoutBaseUrl(merchant, req)}/checkout/${session.id}`
     });
   });
 
