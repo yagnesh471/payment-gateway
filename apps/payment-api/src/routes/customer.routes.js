@@ -148,7 +148,8 @@ export function registerCustomerRoutes(server, ctx) {
       message: 'OTP sent to your WhatsApp number.',
       mobileNumber: cleanMobile,
       expiresInSeconds: 300,
-      devOtp: (process.env.NODE_ENV !== 'production' ? otpCode : undefined),
+      devOtp: (process.env.NODE_ENV !== 'production' || berry?.status !== 'CONNECTED' ? otpCode : undefined),
+      isWhatsAppConnected: Boolean(berry?.status === 'CONNECTED'),
       dispatch: dispatchResult
     });
   });

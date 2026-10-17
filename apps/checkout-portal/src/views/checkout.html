@@ -4561,7 +4561,12 @@
         if (badge) badge.innerText = '+91 ' + currentAuthMobile;
         const otpInput = document.getElementById('authOtpInput');
         if (otpInput) {
-          otpInput.value = '';
+          if (lastReceivedDevOtp) {
+            otpInput.value = lastReceivedDevOtp;
+            showOptionToast('Test OTP auto-filled: ' + lastReceivedDevOtp);
+          } else {
+            otpInput.value = '';
+          }
           setTimeout(() => otpInput.focus(), 50);
         }
         startOtpCooldown(30);
